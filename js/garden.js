@@ -10,11 +10,11 @@ var Edit_Arbor = Vineyard.Natural_Arbor.sub_class('Edit_Arbor', {
     this.element.find('input[type=submit], button[type=submit], #submit').click(function (e) {
       e.preventDefault();
       Seed.plant(self.seed, self.trellis, false, function (seed, response) {
-        var key = self.trellis.primary_key;
-        self.seed[key] = response.objects[0][key];
-        self.goto_destination(self.seed);
-      });
-    });
+        var key = self.trellis.primary_key
+        self.seed[key] = response.objects[0][key]
+        self.on_submit()
+      })
+    })
     this.element.find('#cancel, .cancel').click(function (e) {
       self.garden.vineyard.trellises.todo.disconnect_all('seed');
       e.preventDefault();
@@ -38,6 +38,9 @@ var Edit_Arbor = Vineyard.Natural_Arbor.sub_class('Edit_Arbor', {
         self.seed._delete();
       }
     });
+  },
+  on_submit: function() {
+    this.goto_destination(this.seed)
   },
   destination: function (seed) {
     return this.garden.irrigation.url(seed);
@@ -784,6 +787,11 @@ var Irrigation = Meta_Object.subclass('Irrigation', {
 
     if (typeof trellis_or_seed == 'string') {
       trellis = trellis_or_seed;
+      if (typeof id === 'object') {
+        var trellis_object = this.vineyard.trellises[trellis]
+        seed = id
+        id = seed[trellis_object.primary_key];
+      }
     }
     else {
       var seed = trellis_or_seed;
@@ -807,7 +815,7 @@ var Irrigation = Meta_Object.subclass('Irrigation', {
       args: args
     };
     if (trellis) {
-      this.invoke('url.' + trellis, data, seed);
+      this.invoke('url.' + trellis, data, seed || id);
     }
 
     return Bloom.join(this.app_path, data.pre, data.trellis, data.id, data.action, data.post) + Bloom.render_query(data.args);

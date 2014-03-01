@@ -395,6 +395,9 @@ var Vineyard = (function () {
   }
 
   Seed.prepare_for_planting = function (seed, trellis, bag) {
+    if (seed === null || seed === undefined)
+      return seed
+
     bag = bag || {
       depth: 0,
       seeds: {}
