@@ -99,12 +99,15 @@ var Bloom = (function () {
   Bloom.Mulch = Mulch;
 
   function Block(name, html) {
-    this.name = name;
-    Block.library[name] = this;
-    if (html != null)
-      this.html = html;
+    this.name = name
+    Block.library[name] = this
+    if (html != null) {
+      this.html = html
+      if (window.Handlebars)
+        this.template = Handlebars.compile(html)
+    }
     else
-      this.html = '';
+      this.html = ''
   }
 
   Bloom.Block = Block;
@@ -128,6 +131,9 @@ var Bloom = (function () {
         url: url,
         success: function (seed) {
           block.html = seed;
+          if (window.Handlebars)
+            block.template = Handlebars.compile(seed)
+
           for (var x = 0; x < block.queue.length; x++) {
             block.queue[x](block);
           }
@@ -213,16 +219,22 @@ var Bloom = (function () {
     name: '',
     html: '',
     render: function (control) {
-      var output = this.html;
+      var output
 
-      output = output.replace(/@{([\W\w]*?)}(?=\s*(?:<|"))/gm, function (all, code) {
-        var result = eval(code);
-        if (typeof result === "undefined" || result == null)
-          return '';
+      if (window.Handlebars) {
+        output = this.template(control.seed);
+      }
+      else {
+        output = this.html;
 
-        return result;
-      });
+        output = output.replace(/@{([\W\w]*?)}(?=\s*(?:<|"))/gm, function (all, code) {
+          var result = eval(code);
+          if (typeof result === "undefined" || result == null)
+            return '';
 
+          return result;
+        });
+      }
       var result = $(output);
       return result;
     }
@@ -230,7 +242,7 @@ var Bloom = (function () {
 
   var Flower = Meta_Object.subclass('Flower', {
     override_parameters: false,
-    autobind: true,
+    autobind: window.Handlebars ? false : true,
     initialize: function () {
       // The default method Bloom has used to pass arguments
       // to Flowers has a lot of benefits and works well much
