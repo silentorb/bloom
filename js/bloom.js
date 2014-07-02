@@ -1,5 +1,5 @@
 /*
- * Bloom v1.3.0
+ * Bloom v1.4.0
  * Javascript UI Library
  * Christopher W. Johnson
  * Copyright 2012 Silent Orb
@@ -7,7 +7,7 @@
 var Bloom = (function () {
   'use strict';
   var Bloom = {
-    version: '1.3.0'
+    version: '1.4.0'
   };
 
   MetaHub.import_all();
