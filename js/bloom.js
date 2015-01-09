@@ -353,37 +353,6 @@ var Bloom = (function () {
         action.call(meta_object, event);
       });
     },
-    drag: function (data) {
-      var scope, element = this.element;
-
-      if (data.within_bounds)
-        scope = element;
-      else
-        scope = $(document);
-
-      var mousemove = function (event) {
-        data.moving.call(data.owner, event);
-        event.preventDefault();
-      };
-      var mouseup = function (event) {
-        event.bubbles = false;
-        $(document).unbind('mouseup', mouseup);
-        scope.unbind('mousemove', mousemove);
-        if (typeof finished == 'function') {
-          data.finished.call(data.owner, event);
-        }
-      };
-      element.mousedown(function (event) {
-        if (typeof data.can_move == 'function' && !data.can_move(event)) {
-          return;
-        }
-
-        scope.mousemove(mousemove);
-        $(document).mouseup(mouseup);
-        event.bubbles = false;
-        event.preventDefault();
-      });
-    },
     source_to_element: function () {
       if (!this.element)
         return;
@@ -441,25 +410,6 @@ var Bloom = (function () {
     empty: function () {
       this.disconnect_all('child');
       this.element.empty();
-    },
-    graft_old: function (selector, other) {
-      var element = this.element.find(selector);
-      this.listen(other, 'change', function (value) {
-        Flower.set_value(element, value);
-      });
-
-      Flower.set_value(element, other.value);
-    },
-    graft: function (other, property, selector) {
-      if (selector === undefined) {
-        selector = '.' + property.replace('_', '-');
-      }
-      var element = this.element.find(selector);
-      this.listen(other, 'change.' + property, function (value) {
-        Flower.set_value(element, value);
-      });
-
-      Flower.set_value(element, other[property]);
     },
     update: function (test) {
       var self = this;
@@ -621,19 +571,8 @@ var Bloom = (function () {
         this.seed = this.seed.concat(seed);
       }
 
-      this.load(seed);
+      this.load(seed)
 
-      //      if (this.item_type && typeof this.item_type !== 'function') {
-      //        var block = this.item_type.get_instance_property('block');
-      //        if (block) {
-      //          Block.load(this.item_type.get_instance_property('block'), function() {
-      //            self.load();
-      //          });
-      //        }
-      //        else {
-      //          this.load(seed);
-      //        }
-      //      }
     },
     contains_flower: function (flower) {
       return this.element.has(flower.element[0]).length > 0;
@@ -808,18 +747,7 @@ var Bloom = (function () {
 
       return flower;
     }
-    //    remove_element: function(item) {
-    //      if (item.element) {
-    //        if (item.element.parent()[0] == this.element[0]) {
-    //          item.element.detach();
-    //
-    //        } else if (item.element.parent() && item.element.parent().parent()[0] == this.element[0]) {
-    //          var temp = item.element.parent();
-    //          item.element.detach();
-    //          temp.remove();
-    //        }
-    //      }
-    //    }
+
   });
 
   var Dialog_Old = Flower.subclass('Dialog_Old', {
