@@ -1,102 +1,17 @@
 /*
- * Bloom v1.4.0
+ * Bloom 2.2.0
  * Javascript UI Library
  * Christopher W. Johnson
- * Copyright 2012 Silent Orb
+ * Copyright 2015 Silent Orb
  */
 var Bloom = (function () {
   'use strict';
   var Bloom = {
-    version: '1.4.0'
+    version: '2.0.0'
   };
 
   MetaHub.import_all();
   MetaHub.current_module = Bloom;
-
-  var Mulch = {
-    dirt: {},
-    add: function (type, names, fertilizer, url) {
-      // This may change down the road, but currently load_resources() can be called
-      // multiple times.  Because of that, Mulch prevents overwriting of dirt types
-      // or there would be redundant calls to the server.  If two scripts are
-      // using the same dirt type they need to coordinate the composition of that
-      // dirt between themselves, Mulch isn't going to manage it.
-      if (Mulch.dirt[type])
-        return;
-
-      Mulch.dirt[type] = {
-        fertilizer: fertilizer,
-        tilled: false,
-        names: names,
-        url: url
-      };
-    },
-    // Originally this simply took a function, but that has been deprecated
-    // in favor of also passing a list of blocks as 'dirt'.
-    load_resources: function (pile, onfinished) {
-      if (typeof pile == 'function') {
-        onfinished = pile;
-      }
-      else {
-        if (pile) {
-          for (var i in pile) {
-            var dirt = pile[i];
-            Mulch.add(i, dirt.handfulls, dirt.fertilizer, dirt.url);
-          }
-        }
-      }
-
-      // A valid callback is required because otherwise Mulch is pointless.
-      if (typeof onfinished != 'function')
-        throw new Error('Mulch.load_resources() requires a callback function.');
-
-      Mulch.load_finished = onfinished;
-      for (var type in Mulch.dirt) {
-        if (Mulch.tilled)
-          continue;
-        var dirt = Mulch.dirt[type];
-        if (dirt.url) {
-          Mulch.fertilize_handful(type, dirt);
-        }
-        else {
-          for (var x = 0; x < dirt.names.length; x++) {
-            dirt.fertilizer(dirt.names[x]);
-          }
-        }
-      }
-    },
-    fertilize_handful: function (type, dirt) {
-      jQuery.get(dirt.url, function (response) {
-        dirt.fertilizer(response, dirt.names[0]);
-        Mulch.till(type, dirt.names[0]);
-      }, 'text');
-    },
-    till: function (type, name) {
-      var dirt = Mulch.dirt[type];
-      if (dirt && dirt.names.indexOf(name) > -1) {
-        dirt.tilled = true;
-        Array.remove(Mulch.dirt[type].names, name);
-        if (Mulch.is_empty()) {
-          if (typeof Mulch.load_finished == 'function') {
-            Mulch.load_finished();
-            delete Mulch.load_finished;
-          }
-
-          Mulch.dirt = {};
-        }
-      }
-    },
-    is_empty: function () {
-      for (var x in Mulch.dirt) {
-        if (Mulch.dirt[x].names.length > 0)
-          return false;
-      }
-
-      return true;
-    }
-  };
-  Bloom.Ground = Mulch;
-  Bloom.Mulch = Mulch;
 
   function Block(name, html) {
     this.name = name
@@ -117,6 +32,7 @@ var Bloom = (function () {
   Block.source_path = "";
   Block.use_alert = false;
 
+/*
   Block.load = function (name, onload) {
     var block = Block.library[name];
 
@@ -190,6 +106,7 @@ var Bloom = (function () {
       block.queue.push(onload);
     }
   }
+*/
 
   Block.load_library_from_string = function (text) {
     var data = $(text);
@@ -208,6 +125,14 @@ var Bloom = (function () {
         console.log('Block was missing name or id attribute');
       }
     });
+  }
+
+
+  Block.load = function(url) {
+    return Bloom.ajax(url, 'GET')
+      .then(function(response) {
+        Block.load_library_from_string(response);
+      })
   }
 
   Block.render = function (name, seed) {
@@ -1367,7 +1292,7 @@ Bloom.join = function () {
   return args.join('/');
 }
 
-Bloom.get = function (url, action, error, wait_parent) {
+Bloom.get_old = function (url, action, error, wait_parent) {
   var wait;
   if (Bloom.ajax_prefix) {
     url = Bloom.join(Bloom.ajax_prefix, url);
@@ -1420,89 +1345,70 @@ Bloom.get = function (url, action, error, wait_parent) {
   jQuery.ajax(settings);
 };
 
-Bloom.output = function () {
-};
-
-Bloom.post = function (url, seed, success, error, wait_parent) {
-  var wait;
-  if (success === undefined) {
-    success = seed;
-    seed = null;
+Bloom.ajax = function(url, method, data) {
+  var def = when.defer()
+  function on_success(response) {
+    def.resolve(response)
   }
 
-  if (Bloom.ajax_prefix) {
-    url = Bloom.ajax_prefix + url;
+  function on_error(xhr, message, error) {
+    Bloom.error(message)
+    def.reject(error)
   }
 
-  var action = function (response) {
-//    if ((response.result && response.result.toLowerCase() == 'success') || response.success) {
-    if (success) {
-      success(response);
-    }
-//    }
-
-    if (typeof Bloom.output == 'function') {
-      Bloom.output(response);
-    }
-  };
   var settings = {
-    type: 'POST',
+    type: method,
     url: url,
-    data: seed,
-    success: action,
-    error: error,
-    complete: function () {
-      if (wait)
-        wait.element.remove();
-    }
+    success: on_success,
+    error: on_error,
+		dataType: 'text',
+		xhrFields: {
+			withCredentials: true
+		}
   };
 
-  if (wait_parent && Bloom.Wait_Animation) {
-    wait = Bloom.Wait_Animation.create();
-    wait_parent.append(wait.element);
-    settings.complete = function () {
-      if (wait)
-        wait.element.remove();
-    }
-  }
+	if (data) {
+		settings.data = JSON.stringify(data)
+		settings.contentType = 'application/json'
+	}
 
   jQuery.ajax(settings);
+  return def.promise
 }
 
-Bloom.post_json = function (url, seed, success, error) {
-  if (Bloom.ajax_prefix) {
-    url = Bloom.ajax_prefix + url;
-  }
+Bloom.get = function(url) {
+  return Bloom.ajax(url, 'GET')
+    .then(function(response) {
+      try {
+        var data = JSON.parse(response);
+        return data
+      }
+      catch (e) {
+        console.error('There was a problem parsing the server response.')
+        console.error(e.message)
+      }
+    })
+}
 
-  var action = function (response) {
-    var good = true;
-    // All these checks are for backwards compatibility and are deprecated.
-    if (typeof response.result === 'string' && response.result.toLowerCase() != 'success') {
-      good = false;
-    }
+Bloom.post = function(url, data) {
+	return Bloom.ajax(url, 'POST', data)
+		.then(function(response) {
+			try {
+				var data = JSON.parse(response);
+				return data
+			}
+			catch (e) {
+				console.error('There was a problem parsing the server response.')
+				console.error(e.message)
+			}
+		})
+}
 
-    if (response.success === false) {
-      good = false;
-    }
-    if (good && typeof success === 'function') {
-      success(response);
-    }
+Bloom.error = function(message) {
+  //alert(message)
+}
 
-    if (typeof Bloom.output == 'function') {
-      Bloom.output(response);
-    }
-  };
-  if (typeof seed == 'object') {
-    seed = JSON.stringify(seed);
-  }
-  jQuery.ajax({
-    type: 'POST',
-    url: url,
-    data: seed,
-    success: action,
-    error: error,
-    contentType: 'application/json'
-  });
+Bloom.output = function () {
 }
 
 Bloom.get_url_property = function (name) {
@@ -1529,11 +1435,6 @@ Bloom.get_url_properties = function (source) {
 //  }
   return result;
 }
-
-Bloom.carrot = function () {
-  $('body').css('backMulch', 'orange');
-  document.title = "What's Up Doc?";
-};
 
 Bloom.edit_text = function (element, finished) {
   var text = element.text();
